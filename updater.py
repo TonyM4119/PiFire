@@ -156,7 +156,7 @@ def get_log(num_commits=10):
 def get_remote_version():
 	remote_url, error_msg = get_remote_url()
 	if error_msg == '':
-		# Reference command: git ls-remote --tags --sort="v:refname" git://github.com/nebhead/test-update.git
+		# Reference command: git ls-remote --tags --sort="v:refname" git://github.com/TonyM4119/test-update.git
 		# 	| tail -n1 | sed "s/.*\\///;"
 		# Gets a list of the remote hashes/tags sorted by version, then takes the last (tail) and processes the
 		# 	output to remove the hash and ref/tags/
