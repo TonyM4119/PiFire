@@ -22,6 +22,7 @@ import threading
 import socket
 import pygame 
 from display_base_480x800 import DisplayBase
+from gpiozero import Button
 
 '''
 Display class definition
@@ -41,6 +42,41 @@ class Display(DisplayBase):
 		self.input_event = None
 		# Init Menu Structures
 		self._init_menu()
+		# Init GPIO for button input, setup callbacks: Uncomment to utilize GPIO input
+		self.up = self.dev_pins['input']['up_clk'] 		# UP - GPIO16
+		self.down = self.dev_pins['input']['down_dt']	# DOWN - GPIO20
+		self.enter = self.dev_pins['input']['enter_sw'] # ENTER - GPIO21
+		self.debounce_ms = 500  # number of milliseconds to debounce input
+		self.input_event = None
+		self.input_counter = 0
+
+		# ==== Buttons Setup =====
+		self.pull_up = self.buttonslevel == 'HIGH'
+
+		self.up_button = Button(pin=self.up, pull_up=self.pull_up, hold_time=0.25, hold_repeat=True)
+		self.down_button = Button(pin=self.down, pull_up=self.pull_up, hold_time=0.25, hold_repeat=True)
+		self.enter_button = Button(pin=self.enter, pull_up=self.pull_up)
+
+		# Init Menu Structures
+		self._init_menu()
+		
+		self.up_button.when_pressed = self._up_callback
+		self.down_button.when_pressed = self._down_callback
+		self.enter_button.when_pressed = self._enter_callback
+		self.up_button.when_held = self._up_callback
+		self.down_button.when_held = self._down_callback
+
+	'''
+	============== Input Callbacks ============= 
+	'''
+	def _enter_callback(self):
+		self.input_event='ENTER'
+
+	def _up_callback(self, held=False):
+		self.input_event='UP'
+
+	def _down_callback(self, held=False):
+		self.input_event='DOWN'
 
 	def _display_loop(self):
 		"""
@@ -54,19 +90,7 @@ class Display(DisplayBase):
 		self.display_surface = pygame.display.set_mode(size=(self.WIDTH, self.HEIGHT), flags=pygame.SHOWN)
 		self.display_command = 'splash'
 
-		while True:
-			''' Add pygame key test here. '''
-			pygame.time.delay(50)
-			events = pygame.event.get()  # Gets events (required for key presses to be registered)
-			# This will give us a dictionary where each key has a value of 1 or 0. Where 1 is pressed and 0 is not pressed.
-			keys = pygame.key.get_pressed()
-			if keys[pygame.K_UP]:
-				self.input_event = 'UP'
-			if keys[pygame.K_DOWN]:
-				self.input_event = 'DOWN'
-			if keys[pygame.K_RETURN]:
-				self.input_event = 'ENTER'
-			
+		while True:			
 			''' Normal display loop'''
 			self._event_detect()
 
