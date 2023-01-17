@@ -87,7 +87,7 @@ class Display(DisplayBase):
 		# set the pygame window name 
 		pygame.display.set_caption('PiFire Device Display')
 		# Create Display Surface
-		self.display_surface = pygame.display.set_mode(size=(self.WIDTH, self.HEIGHT), flags=pygame.SHOWN)
+		self.display_surface = pygame.display.set_mode(size=(self.WIDTH, self.HEIGHT), flags=pygame.FULLSCREEN)
 		self.display_command = 'splash'
 
 		while True:			
