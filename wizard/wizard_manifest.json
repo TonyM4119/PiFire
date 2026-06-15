@@ -1581,6 +1581,16 @@
 							"step" : 1,
 							"default" : 4,
 							"hidden" : true
+						},
+						{
+							"label" : "debug",
+							"friendly_name" : "Debug Logging",
+							"description" : "Enable verbose debug logging for iGrill connection, authentication, notifications, and probe value mapping. Disable when not troubleshooting.",
+							"type" : "list",
+							"list_values" : ["True", "False"],
+							"list_labels" : ["Enabled", "Disabled"],
+							"default" : "False",
+							"hidden" : false
 						}
 					]
 				}

@@ -21,8 +21,9 @@ Description:
       'module' : 'bt_igrill_alt',
       'ports' : ['BT0', 'BT1', 'BT2', 'BT3'],
       'config' : {
-        'transient' : True,
-        'hardware_id' : ''
+				'transient' : True,
+				'hardware_id' : '',
+				'debug' : False
       }
     }
 
@@ -33,6 +34,7 @@ Requirements:
 Notes:
   - This initial implementation supports authentication, battery, and probe temps.
   - iGrill v3 propane level is intentionally not implemented in this module yet.
+	- Set config.debug = True to enable verbose troubleshooting logs for this module.
 '''
 
 import asyncio
@@ -45,6 +47,22 @@ from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 
 from probes.base import ProbeInterface
+
+
+# Easy kill-switch for module-level diagnostics.
+IGRILL_DEBUG_DEFAULT = False
+
+
+def _to_bool(value, default=False):
+	if value is None:
+		return default
+	if isinstance(value, bool):
+		return value
+	if isinstance(value, str):
+		return value.strip().lower() in ['true', '1', 'yes', 'on', 'enabled']
+	if isinstance(value, (int, float)):
+		return value != 0
+	return bool(value)
 
 
 class iGrill_Device:
@@ -87,13 +105,14 @@ class iGrill_Device:
 	UNITS_IMPERIAL = bytes([0])
 	UNITS_METRIC = bytes([1])
 
-	def __init__(self, port_map, primary_port, units, transient=True, hardware_id=None):
+	def __init__(self, port_map, primary_port, units, transient=True, hardware_id=None, debug_enabled=False):
 		self.logger = logging.getLogger("control")
 		self.transient = transient
 		self.port_map = port_map
 		self.primary_port = primary_port
 		self.units = units
 		self.hardware_id = hardware_id
+		self.debug_enabled = bool(debug_enabled)
 
 		self.device_setup = False
 		self.sensor_thread_active = False
@@ -101,6 +120,13 @@ class iGrill_Device:
 		self.battery_percentage = None
 		self.firmware_id = None
 		self.probe_values_C: List[Optional[float]] = [None, None, None, None]
+		self._last_probe_debug: List[Optional[float]] = [None, None, None, None]
+		self._last_probe_debug_ts = [0.0, 0.0, 0.0, 0.0]
+		self._last_status_debug_ts = 0.0
+
+		self._dbg(
+			f"init hardware_id={self.hardware_id} units={self.units} transient={self.transient} ports={list(self.port_map.keys())}"
+		)
 
 		self.status = {
 			'battery_percentage': self.battery_percentage,
@@ -119,7 +145,12 @@ class iGrill_Device:
 		self.device_thread = threading.Thread(target=self._run_ble_loop, daemon=True)
 		self.device_thread.start()
 
+	def _dbg(self, message):
+		if self.debug_enabled:
+			self.logger.info(f'(iGrill Alt DEBUG) {message}')
+
 	def _run_ble_loop(self):
+		self._dbg('starting BLE event loop thread')
 		self._loop = asyncio.new_event_loop()
 		asyncio.set_event_loop(self._loop)
 		self._loop.run_until_complete(self._connection_loop())
@@ -128,16 +159,20 @@ class iGrill_Device:
 		while not self._stop_event.is_set():
 			try:
 				if self.hardware_id is None:
+					self._dbg('hardware_id not configured; starting discovery')
 					self.hardware_id = await self._discover_device()
 
 				if self.hardware_id is None:
 					self.logger.debug('(iGrill Alt) No iGrill probe found, sleeping 10s')
+					self._dbg('discovery returned no device; retrying in 10s')
 					await asyncio.sleep(10)
 					continue
 
+				self._dbg(f'attempting connect_and_stream to {self.hardware_id}')
 				await self._connect_and_stream(self.hardware_id)
 			except Exception as e:
 				self.logger.error(f'(iGrill Alt) Error in connection loop: {e}')
+				self._dbg(f'connection loop exception type={type(e).__name__} detail={e}')
 				with self._state_lock:
 					self.sensor_thread_active = False
 					self.device_setup = False
@@ -158,6 +193,7 @@ class iGrill_Device:
 		try:
 			self.logger.debug('(iGrill Alt) Starting scan...')
 			devices = await BleakScanner.discover(timeout=6.0)
+			self._dbg(f'scan complete discovered_count={len(devices)}')
 			if not devices:
 				return None
 
@@ -172,9 +208,13 @@ class iGrill_Device:
 						break
 
 				if model_match is not None or 'igrill' in name:
+					self._dbg(
+						f'candidate address={entry.address} name={entry.name} rssi={entry.rssi} model_match={model_match} uuids={sorted(list(adv_uuids))[:4]}'
+					)
 					candidates.append((entry, model_match))
 
 			if not candidates:
+				self._dbg('no iGrill candidates found in this scan pass')
 				return None
 
 			# Choose best RSSI candidate to improve stability when many devices are nearby.
@@ -185,10 +225,12 @@ class iGrill_Device:
 			return best_entry.address
 		except Exception as e:
 			self.logger.error(f'(iGrill Alt) Error scanning for iGrill device: {e}')
+			self._dbg(f'discovery error type={type(e).__name__} detail={e}')
 			return None
 
 	def _disconnected_callback(self, _client):
 		self.logger.debug('(iGrill Alt) Device disconnected')
+		self._dbg('disconnect callback fired; marking device as offline')
 		with self._state_lock:
 			self.device_setup = False
 			self.sensor_thread_active = False
@@ -198,13 +240,15 @@ class iGrill_Device:
 		try:
 			data = await client.read_gatt_char(uuid)
 			return bytearray(data)
-		except Exception:
+		except Exception as e:
+			self._dbg(f'read failed uuid={uuid} type={type(e).__name__} detail={e}')
 			return None
 
 	async def _safe_write(self, client, uuid, payload):
 		try:
 			await client.write_gatt_char(uuid, payload, response=True)
 		except BleakError:
+			self._dbg(f'write-with-response failed uuid={uuid}; retrying write-without-response')
 			await client.write_gatt_char(uuid, payload, response=False)
 
 	def _parse_probe_bytes(self, data):
@@ -224,6 +268,16 @@ class iGrill_Device:
 			with self._state_lock:
 				if index < len(self.probe_values_C):
 					self.probe_values_C[index] = value_c
+
+			now = time.time()
+			last_value = self._last_probe_debug[index] if index < len(self._last_probe_debug) else None
+			last_ts = self._last_probe_debug_ts[index] if index < len(self._last_probe_debug_ts) else 0.0
+			if value_c != last_value or (now - last_ts) > 30:
+				self._dbg(f'notify probe_index={index} raw={list(bytearray(data))} parsed_c={value_c}')
+				if index < len(self._last_probe_debug):
+					self._last_probe_debug[index] = value_c
+				if index < len(self._last_probe_debug_ts):
+					self._last_probe_debug_ts[index] = now
 		return _probe_callback
 
 	def _battery_callback(self, _char, data):
@@ -235,6 +289,7 @@ class iGrill_Device:
 			battery = None
 		with self._state_lock:
 			self.battery_percentage = battery
+		self._dbg(f'notify battery={battery}')
 
 	async def _resolve_model_service(self, client):
 		try:
@@ -243,32 +298,40 @@ class iGrill_Device:
 			services = await client.get_services()
 
 		service_uuids = {str(s.uuid).lower() for s in services}
+		self._dbg(f'service discovery complete count={len(service_uuids)}')
 		for service_uuid, model_name in self.MODEL_SERVICE_UUIDS.items():
 			if service_uuid in service_uuids:
 				self.model_id = model_name
+				self._dbg(f'model identified from service uuid={service_uuid} model={model_name}')
 				return service_uuid
+		self._dbg('no known iGrill model service UUID found on connected device')
 		return None
 
 	async def _authenticate(self, client):
+		self._dbg('starting authentication handshake')
 		await self._safe_write(client, self.APP_CHALLENGE_UUID, self.APP_CHALLENGE_PAYLOAD)
 		await asyncio.sleep(0.2)
 		device_challenge = await self._safe_read(client, self.DEVICE_CHALLENGE_UUID)
 		if not device_challenge:
 			raise BleakError('Failed to read iGrill device challenge')
 		await self._safe_write(client, self.DEVICE_RESPONSE_UUID, bytes(device_challenge))
+		self._dbg(f'authentication handshake complete challenge_len={len(device_challenge)}')
 
 	async def _read_firmware(self, client):
 		firmware_bytes = await self._safe_read(client, self.FIRMWARE_VERSION_UUID)
 		if not firmware_bytes:
+			self._dbg('firmware read returned empty data')
 			return
 		try:
 			self.firmware_id = firmware_bytes.decode('utf-8', errors='ignore').strip('\x00')
 		except Exception:
 			self.firmware_id = str(firmware_bytes)
+		self._dbg(f'firmware_id={self.firmware_id}')
 
 	async def _configure_temperature_units(self, client):
 		# Keep iGrill on metric units so probe_values_C remains a true Celsius cache.
 		await self._safe_write(client, self.TEMP_UNITS_UUID, self.UNITS_METRIC)
+		self._dbg('forced device temp units to metric for consistent parsing')
 
 	async def _prime_probe_values(self, client):
 		for idx, uuid in enumerate(self.PROBE_UUIDS):
@@ -276,19 +339,23 @@ class iGrill_Device:
 			value_c = self._parse_probe_bytes(data)
 			with self._state_lock:
 				self.probe_values_C[idx] = value_c
+			self._dbg(f'prime probe_index={idx} uuid={uuid} raw={list(data) if data else None} parsed_c={value_c}')
 
 	async def _prime_battery_value(self, client):
 		battery_data = await self._safe_read(client, self.BATTERY_LEVEL_UUID)
 		if battery_data and len(battery_data) > 0:
 			with self._state_lock:
 				self.battery_percentage = max(0, min(100, int(battery_data[0])))
+			self._dbg(f'prime battery={self.battery_percentage}')
 
 	async def _connect_and_stream(self, address):
 		self.logger.debug(f'(iGrill Alt) Connecting to device: {address}')
+		self._dbg(f'opening BLE client address={address}')
 		async with BleakClient(address, disconnected_callback=self._disconnected_callback) as client:
 			self._client = client
 			if not client.is_connected:
 				raise BleakError('Failed to connect to iGrill device')
+			self._dbg('BLE client connected')
 
 			await self._resolve_model_service(client)
 			await self._authenticate(client)
@@ -299,13 +366,17 @@ class iGrill_Device:
 			for idx, probe_uuid in enumerate(self.PROBE_UUIDS):
 				try:
 					await client.start_notify(probe_uuid, self._probe_callback_factory(idx))
+					self._dbg(f'start_notify success probe_index={idx} uuid={probe_uuid}')
 				except Exception as e:
 					self.logger.debug(f'(iGrill Alt) Probe notify setup failed for {probe_uuid}: {e}')
+					self._dbg(f'start_notify failure probe_index={idx} uuid={probe_uuid} type={type(e).__name__} detail={e}')
 
 			try:
 				await client.start_notify(self.BATTERY_LEVEL_UUID, self._battery_callback)
+				self._dbg(f'start_notify success battery_uuid={self.BATTERY_LEVEL_UUID}')
 			except Exception as e:
 				self.logger.debug(f'(iGrill Alt) Battery notify setup failed: {e}')
+				self._dbg(f'start_notify failure battery_uuid={self.BATTERY_LEVEL_UUID} type={type(e).__name__} detail={e}')
 
 			await self._prime_probe_values(client)
 			await self._prime_battery_value(client)
@@ -313,10 +384,12 @@ class iGrill_Device:
 			with self._state_lock:
 				self.device_setup = True
 				self.sensor_thread_active = True
+			self._dbg(f'device marked ready model={self.model_id} firmware={self.firmware_id} battery={self.battery_percentage}')
 
 			while client.is_connected and not self._stop_event.is_set():
 				await asyncio.sleep(1)
 
+			self._dbg('stream loop exiting; client disconnected or stop requested')
 			with self._state_lock:
 				self.sensor_thread_active = False
 				self.device_setup = False
@@ -325,10 +398,12 @@ class iGrill_Device:
 			for probe_uuid in self.PROBE_UUIDS:
 				try:
 					await client.stop_notify(probe_uuid)
+					self._dbg(f'stop_notify success probe_uuid={probe_uuid}')
 				except Exception:
 					pass
 			try:
 				await client.stop_notify(self.BATTERY_LEVEL_UUID)
+				self._dbg(f'stop_notify success battery_uuid={self.BATTERY_LEVEL_UUID}')
 			except Exception:
 				pass
 
@@ -357,13 +432,21 @@ class iGrill_Device:
 class ReadProbes(ProbeInterface):
 	def __init__(self, probe_info, device_info, units):
 		self.hardware_id = device_info['config'].get('hardware_id', None)
+		self.debug_enabled = _to_bool(device_info['config'].get('debug', IGRILL_DEBUG_DEFAULT), default=IGRILL_DEBUG_DEFAULT)
 		if self.hardware_id == '':
 			self.hardware_id = None
 		super().__init__(probe_info, device_info, units)
 
 	def _init_device(self):
 		self.time_delay = 0
-		self.device = iGrill_Device(self.port_map, self.primary_port, self.units, transient=self.transient, hardware_id=self.hardware_id)
+		self.device = iGrill_Device(
+			self.port_map,
+			self.primary_port,
+			self.units,
+			transient=self.transient,
+			hardware_id=self.hardware_id,
+			debug_enabled=self.debug_enabled,
+		)
 
 	def read_all_ports(self, output_data):
 		port_values = {}
@@ -385,5 +468,14 @@ class ReadProbes(ProbeInterface):
 
 				if self.time_delay:
 					time.sleep(self.time_delay)
+
+		if self.debug_enabled:
+			now = time.time()
+			if (now - self.device._last_status_debug_ts) > 15:
+				status = self.device.get_status()
+				self.logger.info(
+					f"(iGrill Alt DEBUG) read_all_ports units={self.units} mapped_values={port_values} connected={status.get('connected')} battery={status.get('battery_percentage')} model={status.get('probe_id')} firmware={status.get('firmware_id')}"
+				)
+				self.device._last_status_debug_ts = now
 
 		return self.output_data
