@@ -35,6 +35,9 @@ Notes:
   - This initial implementation supports authentication, battery, and probe temps.
   - iGrill v3 propane level is intentionally not implemented in this module yet.
 	- Set config.debug = True to enable verbose troubleshooting logs for this module.
+  - WARNING: On most Raspberry Pi models, 2.4GHz WiFi and Bluetooth share the same antenna,
+    which may cause signal interference. If you experience unreliable connections, consider
+    disabling WiFi or moving the PiFire system away from other 2.4GHz devices.
 '''
 
 import asyncio
@@ -329,9 +332,9 @@ class iGrill_Device:
 		self._dbg(f'firmware_id={self.firmware_id}')
 
 	async def _configure_temperature_units(self, client):
-		# Keep iGrill on metric units so probe_values_C remains a true Celsius cache.
-		await self._safe_write(client, self.TEMP_UNITS_UUID, self.UNITS_METRIC)
-		self._dbg('forced device temp units to metric for consistent parsing')
+		units_val = self.UNITS_METRIC if self.units == 'C' else self.UNITS_IMPERIAL
+		await self._safe_write(client, self.TEMP_UNITS_UUID, units_val)
+		self._dbg(f'configured device temp units to {"metric" if self.units == "C" else "imperial"}')
 
 	async def _prime_probe_values(self, client):
 		for idx, uuid in enumerate(self.PROBE_UUIDS):
@@ -454,7 +457,7 @@ class ReadProbes(ProbeInterface):
 
 		if len(probe_values_C) >= len(self.port_map):
 			for index, port in enumerate(self.port_map):
-				port_values[port] = probe_values_C[index] if self.units == 'C' else self._to_fahrenheit(probe_values_C[index])
+				port_values[port] = probe_values_C[index]
 				output_value = port_values[port]
 
 				self.output_data['tr'][self.port_map[port]] = 0

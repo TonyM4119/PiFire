@@ -1534,7 +1534,7 @@
 			"bt_igrill_alt" : {
 				"friendly_name" : "Bluetooth - Weber iGrill (Bleak Alt)",
 				"filename" : "bt_igrill_alt",
-				"description" : "This device module supports Bluetooth LE Weber iGrill devices (mini, mini v2, v2, v202, and v3) using the Bleak library. This module currently supports authentication, probe temperatures, and battery level.",
+				"description" : "This device module supports Bluetooth LE Weber iGrill devices (mini, mini v2, v2, v202, and v3) using the Bleak library. This module currently supports authentication, probe temperatures, and battery level. WARNING: On most Raspberry Pi models, 2.4GHz WiFi and Bluetooth share the same antenna, which may cause signal interference. If you experience unreliable iGrill connections, consider disabling WiFi or moving away from other 2.4GHz wireless devices.",
 				"default" : false,
 				"image" : "bt_ibbq.png",
 				"reboot_required" : false,
