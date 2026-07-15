@@ -1,7 +1,7 @@
 import json
 import os
 
-BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 
 def test_module_reexports_display():

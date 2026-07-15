@@ -1,7 +1,7 @@
 import os
 from tools.generate_dsi_layout import build, dumps, RESOLUTIONS
 
-BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 
 def _committed(width, height):

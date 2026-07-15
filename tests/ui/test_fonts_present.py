@@ -1,6 +1,6 @@
 import os
 
-BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 FONTS = [
 	'Barlow-Regular.ttf',
 	'Barlow-Medium.ttf',

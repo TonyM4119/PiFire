@@ -32,7 +32,7 @@ import os
 import jinja2
 import pytest
 
-BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 WIZARD_TEMPLATE_DIR = os.path.join(BASE, 'blueprints', 'wizard', 'templates')
 BASE_TEMPLATE_DIR = os.path.join(BASE, 'templates')
 

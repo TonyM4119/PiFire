@@ -17,7 +17,7 @@ import os
 from display.base_flex import DisplayBase, NEW_EMBER_FLEX_TYPES
 from display.flexobject import resolve_accent
 
-BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 
 def _flex_base(name, obj_type, position=(0, 0), size=(100, 100), **extra):

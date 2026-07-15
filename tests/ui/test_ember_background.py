@@ -1,7 +1,7 @@
 import os
 from PIL import Image
 
-BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 PATH = os.path.join(BASE, 'static', 'img', 'display', 'background_ember_1280x720.png')
 
 
