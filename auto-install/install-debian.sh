@@ -20,7 +20,7 @@
 # the repo's own nginx/supervisor config files.
 #
 # Install with this command (from your Debian/Ubuntu machine):
-#   curl https://raw.githubusercontent.com/dberlin/pifire/massive-reworks-and-new-ui/auto-install/install-debian.sh | bash
+#   curl https://raw.githubusercontent.com/TonyM4119/pifire/massive-reworks-and-new-ui/auto-install/install-debian.sh | bash
 #
 # Usage:
 #   ./install-debian.sh [-dev]
@@ -181,7 +181,7 @@ if [[ -d /usr/local/bin/pifire ]]; then
     log " ! /usr/local/bin/pifire already exists; leaving it in place."
 else
     log " + Cloning massive-reworks-and-new-ui branch..."
-    $SUDO git clone --depth 1 --branch massive-reworks-and-new-ui https://github.com/dberlin/pifire 2>&1 | tee -a "$LOG"
+    $SUDO git clone --depth 1 --branch massive-reworks-and-new-ui https://github.com/TonyM4119/pifire 2>&1 | tee -a "$LOG"
 fi
 
 # --- pifire group / ownership / sudoers -----------------------------------
