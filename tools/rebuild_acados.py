@@ -612,6 +612,31 @@ def _configured_compiler_identity(build_root: Path) -> dict[str, str]:
     }
 
 
+def _cmake_version() -> str:
+    output = subprocess.run(["cmake", "--version"], capture_output=True, text=True, check=True).stdout
+    match = re.search(r"cmake version (\S+)", output)
+    return match.group(1) if match else output
+
+
+def _prune_stale_cmake_identity_dirs(build_root: Path, cmake_version: str) -> tuple[Path, ...]:
+    """Drop CMakeFiles/<version>/ left behind by a cmake other than the one running.
+
+    cmake keeps its compiler-identity files under a directory named after its
+    own version and never removes a predecessor's, so a host whose cmake was
+    upgraded between native builds ends up with two CMakeCCompiler.cmake files
+    and the identity check after configure cannot tell which one is current.
+    """
+    cmake_files = build_root / "CMakeFiles"
+    if not cmake_files.is_dir():
+        return ()
+    removed = []
+    for candidate in sorted(cmake_files.iterdir()):
+        if candidate.name != cmake_version and (candidate / "CMakeCCompiler.cmake").is_file():
+            shutil.rmtree(candidate)
+            removed.append(candidate)
+    return tuple(removed)
+
+
 def _requested_compiler_identity() -> dict[str, str]:
     compiler = shutil.which(os.environ.get("CC", "cc"))
     if compiler is None:
@@ -688,8 +713,6 @@ def _current_identity(
     if any(not path.is_file() for path in inputs):
         raise RebuildError("canonical native build input is missing")
     resolved_compiler = _requested_compiler_identity() if compiler_identity is None else dict(compiler_identity)
-    cmake_output = subprocess.run(["cmake", "--version"], capture_output=True, text=True, check=True).stdout
-    cmake_match = re.search(r"cmake version (\S+)", cmake_output)
     header = (root / "native/include/acados_pifire.h").read_text(encoding="utf-8")
     abi_match = re.search(r"ACADOS_PIFIRE_ABI_VERSION\s+(\d+)", header)
     if abi_match is None:
@@ -701,7 +724,7 @@ def _current_identity(
         host={"system": platform.system(), "machine": platform.machine()},
         compiler=resolved_compiler,
         cmake={
-            "version": cmake_match.group(1) if cmake_match else cmake_output,
+            "version": _cmake_version(),
             "generator": "Unix Makefiles",
             "flags": ["CMAKE_BUILD_TYPE=Release", "ACADOS_WITH_OPENMP=ON"],
         },
@@ -1108,6 +1131,8 @@ class LocalOperations:
 
     def configure_and_fetch(self) -> None:
         self.paths.build_root.mkdir(parents=True, exist_ok=True)
+        for stale in _prune_stale_cmake_identity_dirs(self.paths.build_root, _cmake_version()):
+            self.emit(f"removed compiler identity cache from another cmake: {stale}")
         requested_compiler = _requested_compiler_identity()
         _stream(
             (

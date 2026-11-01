@@ -967,6 +967,94 @@ def test_configure_resets_ephemeral_generated_and_output_cache_paths(
     assert (f"-DACADOS_PIFIRE_LIBRARY_OUTPUT_DIRECTORY={operations.paths.build_root / 'bootstrap-output'}") in command
 
 
+_IDENTITY_CACHE = (
+    'set(CMAKE_C_COMPILER "/usr/bin/gcc")\nset(CMAKE_C_COMPILER_ID "GNU")\n'
+    'set(CMAKE_C_COMPILER_VERSION "16.2.1")\nset(CMAKE_C_COMPILER_TARGET "")'
+)
+
+
+def _seed_identity_caches(build_root: Path, *versions: str) -> None:
+    for version in versions:
+        cache = build_root / "CMakeFiles" / version / "CMakeCCompiler.cmake"
+        cache.parent.mkdir(parents=True)
+        cache.write_text(_IDENTITY_CACHE)
+    (build_root / "CMakeFiles" / "FindOpenMP").mkdir()
+    (build_root / "CMakeFiles" / "FindOpenMP" / "OpenMPTryFlag.c").write_text("")
+
+
+def test_prune_removes_identity_caches_from_other_cmake_versions(tmp_path: Path) -> None:
+    _seed_identity_caches(tmp_path, "4.3.0", "4.4.5")
+
+    removed = rebuild_module._prune_stale_cmake_identity_dirs(tmp_path, "4.4.5")
+
+    assert removed == (tmp_path / "CMakeFiles" / "4.3.0",)
+    assert (tmp_path / "CMakeFiles" / "4.4.5" / "CMakeCCompiler.cmake").is_file()
+    assert (tmp_path / "CMakeFiles" / "FindOpenMP" / "OpenMPTryFlag.c").is_file()
+    assert rebuild_module._prune_stale_cmake_identity_dirs(tmp_path / "fresh", "4.4.5") == ()
+
+
+def _configure_with_upgraded_cmake(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, prune: bool
+) -> rebuild_module.LocalOperations:
+    operations = rebuild_module.LocalOperations(tmp_path)
+    build_root = operations.paths.build_root
+    _seed_identity_caches(build_root, "4.3.0")
+    compiler = {
+        "id": "GNU",
+        "version": "16.2.1",
+        "target": "x86_64-redhat-linux",
+        "executable": "/usr/bin/gcc",
+    }
+
+    def stream(command: tuple[str, ...], **_: object) -> None:
+        # The running cmake writes its own identity directory beside any older
+        # one, which is the situation a cmake upgrade leaves behind.
+        cache = build_root / "CMakeFiles" / "4.4.5" / "CMakeCCompiler.cmake"
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(_IDENTITY_CACHE)
+        (build_root / "acados-source-dir.txt").write_text(str(tmp_path), encoding="utf-8")
+
+    monkeypatch.setattr(rebuild_module, "_stream", stream)
+    monkeypatch.setattr(rebuild_module, "_cmake_version", lambda: "4.4.5")
+    monkeypatch.setattr(rebuild_module, "_requested_compiler_identity", lambda: compiler)
+    monkeypatch.setattr(rebuild_module, "_command_compiler_identity", lambda _: compiler)
+    monkeypatch.setattr(rebuild_module, "_validated_generated_manifest", lambda *_: {})
+    monkeypatch.setattr(rebuild_module, "_verify_fetched_source", lambda *_: None)
+    if not prune:
+        monkeypatch.setattr(rebuild_module, "_prune_stale_cmake_identity_dirs", lambda *_: ())
+    return operations
+
+
+def test_configure_survives_a_cmake_upgrade_by_pruning_the_old_identity_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operations = _configure_with_upgraded_cmake(tmp_path, monkeypatch, prune=True)
+
+    operations.configure_and_fetch()
+
+    caches = sorted(
+        path.parent.name for path in (operations.paths.build_root / "CMakeFiles").glob("*/CMakeCCompiler.cmake")
+    )
+    assert caches == ["4.4.5"]
+    assert operations._compiler_identity == {
+        "id": "GNU",
+        "version": "16.2.1",
+        "target": "x86_64-redhat-linux",
+        "executable": "/usr/bin/gcc",
+    }
+
+
+def test_configure_without_the_prune_reproduces_the_ambiguous_identity_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operations = _configure_with_upgraded_cmake(tmp_path, monkeypatch, prune=False)
+
+    with pytest.raises(RebuildError, match="missing or ambiguous"):
+        operations.configure_and_fetch()
+
+
 def test_apple_clang_and_clang_share_one_compiler_identity() -> None:
     assert rebuild_module._normalize_compiler_id("AppleClang") == "Clang"
     assert rebuild_module._normalize_compiler_id("Clang") == "Clang"
