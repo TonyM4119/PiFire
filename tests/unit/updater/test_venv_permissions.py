@@ -150,10 +150,13 @@ def test_installed_updater_prepares_permissions_before_sync_or_fails_closed(
     synced = False
 
     def launch(command, **kwargs):
-        return popen(
-            [*command[:2], str(PREPARE), "--repo", str(tmp_path)],
-            **kwargs,
-        )
+        if command[-1].endswith("prepare_python_environment.py"):
+            return popen(
+                [*command[:2], str(PREPARE), "--repo", str(tmp_path)],
+                **kwargs,
+            )
+        # Later pre-sync migrations are not under test here; they succeed inertly.
+        return popen([sys.executable, "-c", "pass"], **kwargs)
 
     def sync(**kwargs):
         nonlocal synced

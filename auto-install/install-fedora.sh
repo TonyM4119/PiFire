@@ -542,6 +542,7 @@ fi
 
 log " + Enabling and starting supervisord"
 $SUDO systemctl enable supervisord 2>&1 | tee -a "$LOG"
+pifire_install_supervisor_ordering supervisord /usr/local/bin/pifire
 fi
 $SUDO systemctl restart supervisord 2>&1 | tee -a "$LOG"
 PIFIRE_SERVICE_CODE=${PIPESTATUS[0]}

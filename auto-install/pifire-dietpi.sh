@@ -459,6 +459,7 @@ else
 	echo "No WebUI Setup." | tee -a ~/logs/pifire_install.log
 fi
 
+pifire_install_supervisor_ordering supervisor /usr/local/bin/pifire
 fi
 # If supervisor isn't already running, startup Supervisor
 $SUDO service supervisor start 2>&1 | tee -a ~/logs/pifire_install.log

@@ -499,6 +499,7 @@ fi
 
 log " + Enabling and starting supervisor"
 $SUDO systemctl enable supervisor 2>&1 | tee -a "$LOG"
+pifire_install_supervisor_ordering supervisor /usr/local/bin/pifire
 fi
 $SUDO systemctl restart supervisor 2>&1 | tee -a "$LOG" ||
 	$SUDO service supervisor restart 2>&1 | tee -a "$LOG"

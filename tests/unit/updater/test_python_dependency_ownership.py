@@ -424,6 +424,17 @@ def test_new_updater_does_not_recursively_run_its_old_process_bootstrap(monkeypa
     import updater
 
     manifest = _updater_manifest()
+    popen = subprocess.Popen
+    launched: list[list[str]] = []
+
+    # Ordinary manifest commands may run; only the 1.23.0 bridge commands that
+    # re-enter updater.py are forbidden, since this process already did that
+    # refresh itself. They are matched without argv[0], which the command loop
+    # rewrites from "python" to the configured interpreter.
+    def launch(command, **kwargs):
+        launched.append(list(command))
+        return popen([sys.executable, "-c", "pass"], **kwargs)
+
     monkeypatch.setattr(updater, "DEBUG", False, raising=False)
     monkeypatch.setattr(updater, "read_updater_manifest", lambda: manifest)
     monkeypatch.setattr(updater, "_run_acados_bootstrap_migrations", lambda *args: 0)
@@ -431,21 +442,21 @@ def test_new_updater_does_not_recursively_run_its_old_process_bootstrap(monkeypa
     monkeypatch.setattr(updater, "read_settings", lambda: {"globals": {"uv": True}})
     monkeypatch.setattr(updater, "record_installed_version", lambda value: None)
     monkeypatch.setattr(updater.time, "sleep", lambda seconds: None)
-    monkeypatch.setattr(
-        updater.subprocess,
-        "Popen",
-        lambda *args, **kwargs: raise_unexpected_bootstrap(),
-    )
+    monkeypatch.setattr(updater.subprocess, "Popen", launch)
 
     result, reboot, manual_actions = updater.install_dependencies("1.22.1", 117)
 
     assert result == 0
     assert reboot is False
     assert manual_actions == ()
-
-
-def raise_unexpected_bootstrap() -> None:
-    raise AssertionError("new updater must not invoke its old-process bootstrap command")
+    bridge_entry = next(
+        entry for entry in manifest["versions"] if entry["version"] == "1.23.0" and entry["build"] == 119
+    )
+    bridges = [command[1:] for section in bridge_entry["dependencies"].values() for command in section["command_list"]]
+    assert len(bridges) == 2
+    assert [command for command in launched if command[1:] in bridges] == [], (
+        "new updater must not invoke its old-process bootstrap command"
+    )
 
 
 def test_pending_updater_python_dependency_uses_compatible_uv(monkeypatch) -> None:

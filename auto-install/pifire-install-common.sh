@@ -482,6 +482,35 @@ pifire_install_udev_rules() {
 	$SUDO udevadm trigger 2>&1 | tee -a "$LOG" || log " ! udevadm trigger failed (continuing)."
 }
 
+# pifire_install_supervisor_ordering <unit> [repo_dir]
+#
+# Orders the supervisor systemd unit ("supervisord" on Fedora, "supervisor" on
+# Debian) after user lookups are available, so a run-as user that comes from
+# sssd resolves when the programs start. The drop-in itself explains the
+# failure it prevents: auto-install/systemd/supervisor-nss-ordering.conf.
+#
+# PIFIRE_SYSTEMD_ROOT redirects the install for tests; it is /etc/systemd/system
+# in production.
+pifire_install_supervisor_ordering() {
+	local unit="$1" repo="${2:-$PIFIRE_REPO_DIR}"
+	local src="$repo/auto-install/systemd/supervisor-nss-ordering.conf"
+	local dst="${PIFIRE_SYSTEMD_ROOT:-/etc/systemd/system}/$unit.service.d/pifire-nss-ordering.conf"
+
+	if [[ ! -f "$src" ]]; then
+		log " ! $src not found; skipping supervisor startup ordering."
+		return 0
+	fi
+	log " + Installing $dst"
+	if ! $SUDO install -D -m 0644 "$src" "$dst" >>"$LOG" 2>&1; then
+		log " ! Could not install $dst"
+		return 1
+	fi
+	# Without a reload the running manager keeps the old unit graph and the
+	# next boot is the first time the ordering applies.
+	$SUDO systemctl daemon-reload >>"$LOG" 2>&1 || log " ! systemctl daemon-reload failed (continuing)."
+	return 0
+}
+
 # pifire_prepare_log_dir <repo> <user>
 #
 # The three supervisor programs do not all run as the same user: control and
