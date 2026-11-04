@@ -9,13 +9,13 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.dberlin.pifire.mobile",
+      "bundleIdentifier": "com.tonym4119.pifire",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "org.dberlin.pifire.mobile",
+      "package": "com.tonym4119.pifire",
       "adaptiveIcon": {
         "backgroundColor": "#959595",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,12 +27,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": ["expo-router"],
-    "owner": "danberlins-team",
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "e4b5a56f-5a06-4bed-b73c-c4d646ca0b33"
-      }
+      "router": {}
     }
   }
 }

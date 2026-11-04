@@ -13,7 +13,7 @@ else
 #
 # Install with this command (from your Pi):
 #
-# curl https://raw.githubusercontent.com/dberlin/pifire/massive-reworks-and-new-ui/auto-install/install.sh | bash
+# curl https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/install.sh | bash
 #
 # NOTE: Pre-Requisites to run Raspi-Config first.  See README.md.
 #
@@ -27,7 +27,7 @@ else
 #          This is useful for testing new features or bug fixes that are not yet in the main branch.
 #          If this option is not used, the main branch will be installed by default.
 #          Note: This option is ignored if -dev is also used.
-#          Example usage: curl https://raw.githubusercontent.com/dberlin/pifire/massive-reworks-and-new-ui/auto-install/install.sh | bash -s -- -devrepo
+#          Example usage: curl https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/install.sh | bash -s -- -devrepo
 # -venv, -uv: Accepted for backwards compatibility and ignored. PiFire installs
 #          its Python dependencies with uv from pyproject.toml; there is no
 #          longer a vanilla-venv/pip path to choose between.
@@ -63,7 +63,7 @@ if [[ $DEV_INSTALLER == "true" ]]; then
 		fi
 	done
 	echo " + Passing through arguments to development branch installer: ${passthrough_args[*]}" | tee -a ~/logs/pifire_install.log
-	curl -SL https://raw.githubusercontent.com/dberlin/pifire/massive-reworks-and-new-ui/auto-install/install.sh | bash -s -- -devrepo "${passthrough_args[@]}"
+	curl -SL https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/install.sh | bash -s -- -devrepo "${passthrough_args[@]}"
 	exit 0
 elif [[ $DEV_REPO == "true" ]]; then
 	echo " + Running installation script from development branch based on version $INSTALL_SCRIPT_VERSION..." | tee -a ~/logs/pifire_install.log
@@ -285,7 +285,7 @@ echo "**                                                                     **"
 echo "*************************************************************************" | tee -a ~/logs/pifire_install.log
 cd /usr/local/bin
 
-PIFIRE_REPO_URL="https://github.com/dberlin/pifire"
+PIFIRE_REPO_URL="https://github.com/TonyM4119/PiFire"
 PIFIRE_BRANCH="massive-reworks-and-new-ui"
 if [[ ! -d /usr/local/bin/pifire ]]; then
 	echo " + Cloning $PIFIRE_BRANCH branch..." | tee -a ~/logs/pifire_install.log

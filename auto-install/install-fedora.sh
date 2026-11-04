@@ -24,7 +24,7 @@ else
 #     best-effort since they are not in the Fedora repos
 #
 # Install with this command (from your Fedora machine):
-#   curl https://raw.githubusercontent.com/dberlin/pifire/massive-reworks-and-new-ui/auto-install/install-fedora.sh | bash
+#   curl https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/install-fedora.sh | bash
 #
 # Usage:
 #   ./install-fedora.sh [-dev]
@@ -203,7 +203,7 @@ $SUDO systemctl enable --now bluetooth 2>&1 | tee -a "$LOG" || log " ! bluetooth
 log "*************************************************************************"
 log "**  Cloning PiFire from GitHub...                                     **"
 log "*************************************************************************"
-PIFIRE_REPO_URL="https://github.com/dberlin/pifire"
+PIFIRE_REPO_URL="https://github.com/TonyM4119/PiFire"
 PIFIRE_BRANCH="massive-reworks-and-new-ui"
 cd /usr/local/bin
 if [[ ! -d /usr/local/bin/pifire ]]; then
