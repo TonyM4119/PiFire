@@ -1,4 +1,4 @@
-appId: org.dberlin.pifire.mobile
+appId: com.tonym4119.pifire
 name: First run, connect, and walk every tab
 ---
 # Covers first launch with no stored host, connecting, and reaching every tab.

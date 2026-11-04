@@ -28,7 +28,7 @@ else
 # the repo's own nginx/supervisor config files.
 #
 # Install with this command (from your Debian/Ubuntu machine):
-#   curl https://raw.githubusercontent.com/dberlin/pifire/massive-reworks-and-new-ui/auto-install/install-debian.sh | bash
+#   curl https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/install-debian.sh | bash
 #
 # Usage:
 #   ./install-debian.sh [-dev]
@@ -231,7 +231,7 @@ $SUDO systemctl enable --now bluetooth 2>&1 | tee -a "$LOG" || log " ! bluetooth
 log "*************************************************************************"
 log "**  Cloning PiFire from GitHub...                                     **"
 log "*************************************************************************"
-PIFIRE_REPO_URL="https://github.com/dberlin/pifire"
+PIFIRE_REPO_URL="https://github.com/TonyM4119/PiFire"
 PIFIRE_BRANCH="massive-reworks-and-new-ui"
 cd /usr/local/bin
 if [[ ! -d /usr/local/bin/pifire ]]; then
