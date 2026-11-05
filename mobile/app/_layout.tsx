@@ -171,7 +171,17 @@ function LiveShell({
     return () => clearInterval(id);
   }, []);
   useEffect(() => setNow(monotonicNowMs()), [live.lastPayloadMonotonicMs]);
-  const displayLive = useMemo(() => qualifyRetainedHealth(live, now), [live, now]);
+  // A payload's receipt stamp is itself a reading of this same monotonic
+  // clock, so "now" can never truly be earlier than it. But the render that
+  // delivers a new payload still carries the `now` sampled on the previous
+  // tick (the effect above only refreshes it after commit), which made the
+  // age negative for that one frame -- read as "no valid receipt", flashing
+  // "No data yet" / "Last known" every time the grill's data changed.
+  // Clamping to the receipt closes that window; a genuine clock reset is
+  // still caught by useLive, which drops the receipt itself.
+  const shellNow =
+    live.lastPayloadMonotonicMs === null ? now : Math.max(now, live.lastPayloadMonotonicMs);
+  const displayLive = useMemo(() => qualifyRetainedHealth(live, shellNow), [live, shellNow]);
   const primaryWire = displayLive.live.thermocoupleHealth?.find(
     (health) => health.role === "Primary" && health.label === displayLive.live.primaryProbe.label,
   );
@@ -193,7 +203,7 @@ function LiveShell({
 
   return (
     <LiveContext.Provider value={displayLive}>
-      <StatusStrip live={live} now={now} />
+      <StatusStrip live={live} now={shellNow} />
       <HealthBanner health={primaryHealth} />
       {children}
     </LiveContext.Provider>

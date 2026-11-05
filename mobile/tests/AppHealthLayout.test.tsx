@@ -169,3 +169,17 @@ it("shows unknown producer age while keeping its retained fault visible", async 
   expect(screen.getByText("Last reported")).toBeTruthy();
   expect(screen.getByRole("alert").props.accessibilityLabel).toContain("Age unknown");
 });
+
+it("never flashes No data yet when a payload's receipt is newer than the shell clock tick", async () => {
+  const screen = await render(<RootLayout />);
+  await waitFor(() => expect(screen.getByText("Live")).toBeTruthy());
+
+  // The render carrying a fresh payload still holds the shell's previous
+  // clock sample, so the receipt stamp is "ahead" of it. That must read as a
+  // fresh payload, not as an invalid receipt.
+  mockLiveState.current = liveResult([wireHealth()], "live", monotonicNowMs() + 5_000);
+  await screen.rerender(<RootLayout />);
+
+  expect(screen.queryByText("No data yet")).toBeNull();
+  expect(screen.getByText("Live")).toBeTruthy();
+});
