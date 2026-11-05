@@ -1045,7 +1045,7 @@ def test_resolve_bookmark_revision_uses_one_exact_jj_query(monkeypatch: pytest.M
 
     monkeypatch.setattr(gate_module.subprocess, "run", completed_run)
 
-    assert resolve_bookmark_revision(_REPOSITORY_ROOT, "massive-reworks-and-new-ui") == _REVISION
+    assert resolve_bookmark_revision(_REPOSITORY_ROOT, "main") == _REVISION
     assert calls == [
         (
             (
@@ -1054,7 +1054,7 @@ def test_resolve_bookmark_revision_uses_one_exact_jj_query(monkeypatch: pytest.M
                 "log",
                 "--no-graph",
                 "-r",
-                "massive-reworks-and-new-ui",
+                "main",
                 "-T",
                 'commit_id ++ "\\n"',
             ),
@@ -1387,7 +1387,7 @@ def test_verify_bookmark_runs_gate_inside_an_isolated_live_runtime(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION],
+            "main": [_REVISION],
             "@": [_REVISION] * 14,
         },
     )
@@ -1403,7 +1403,7 @@ def test_verify_bookmark_runs_gate_inside_an_isolated_live_runtime(
 
     evidence = gate_module._verify_bookmark(
         root=_REPOSITORY_ROOT,
-        bookmark="massive-reworks-and-new-ui",
+        bookmark="main",
         artifact_root=tmp_path / "artifacts",
         run_command=runner,
     )
@@ -1428,16 +1428,16 @@ def test_push_runs_a_fresh_gate_and_only_the_authorized_push(
     calls = _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION, _REVISION],
+            "main": [_REVISION, _REVISION],
             "@": [_REVISION] * 15,
-            "massive-reworks-and-new-ui@origin": [_REVISION],
+            "main@origin": [_REVISION],
         },
     )
     runner = _PushRunner(*_success_results())
 
     evidence = push_verified_bookmark(
         root=_REPOSITORY_ROOT,
-        bookmark="massive-reworks-and-new-ui",
+        bookmark="main",
         artifact_root=tmp_path / "artifacts",
         run_command=runner,
         resolve_operation=lambda: _OPERATION_ID,
@@ -1447,12 +1447,12 @@ def test_push_runs_a_fresh_gate_and_only_the_authorized_push(
     assert len(runner.calls) == 6
     assert runner.push_calls == [
         (
-            ("jj", "--at-operation", _OPERATION_ID, "git", "push", "-b", "massive-reworks-and-new-ui"),
+            ("jj", "--at-operation", _OPERATION_ID, "git", "push", "-b", "main"),
             _REPOSITORY_ROOT,
         )
     ]
-    assert calls[:2] == ["massive-reworks-and-new-ui", "@"]
-    assert calls[-3:] == ["@", "massive-reworks-and-new-ui", "massive-reworks-and-new-ui@origin"]
+    assert calls[:2] == ["main", "@"]
+    assert calls[-3:] == ["@", "main", "main@origin"]
 
 
 def test_push_stays_pinned_when_live_bookmark_moves_before_command_execution(
@@ -1464,7 +1464,7 @@ def test_push_stays_pinned_when_live_bookmark_moves_before_command_execution(
 
     def resolve(root: Path, bookmark: str, *, operation_id: str | None = None) -> str:
         assert root == _REPOSITORY_ROOT
-        if bookmark == "massive-reworks-and-new-ui@origin":
+        if bookmark == "main@origin":
             return _REVISION
         if operation_id is not None:
             assert operation_id == _OPERATION_ID
@@ -1493,7 +1493,7 @@ def test_push_stays_pinned_when_live_bookmark_moves_before_command_execution(
             **kwargs: object,
         ) -> subprocess.CompletedProcess:
             if len(argv) >= 6 and argv[:2] == ("jj", "--at-operation") and argv[3:5] == ("git", "push"):
-                assert race_events == ["pinned:@", "pinned:massive-reworks-and-new-ui"]
+                assert race_events == ["pinned:@", "pinned:main"]
                 live_bookmark["revision"] = _OTHER_REVISION
                 race_events.append("live-bookmark:moved")
             return super().__call__(argv, cwd=cwd, check=check, **kwargs)
@@ -1502,7 +1502,7 @@ def test_push_stays_pinned_when_live_bookmark_moves_before_command_execution(
 
     evidence = push_verified_bookmark(
         root=_REPOSITORY_ROOT,
-        bookmark="massive-reworks-and-new-ui",
+        bookmark="main",
         artifact_root=tmp_path / "artifacts",
         run_command=runner,
         resolve_operation=lambda: _OPERATION_ID,
@@ -1510,10 +1510,10 @@ def test_push_stays_pinned_when_live_bookmark_moves_before_command_execution(
 
     assert evidence.status == "passed"
     assert live_bookmark["revision"] == _OTHER_REVISION
-    assert race_events == ["pinned:@", "pinned:massive-reworks-and-new-ui", "live-bookmark:moved"]
+    assert race_events == ["pinned:@", "pinned:main", "live-bookmark:moved"]
     assert runner.push_calls == [
         (
-            ("jj", "--at-operation", _OPERATION_ID, "git", "push", "-b", "massive-reworks-and-new-ui"),
+            ("jj", "--at-operation", _OPERATION_ID, "git", "push", "-b", "main"),
             _REPOSITORY_ROOT,
         )
     ]
@@ -1529,9 +1529,9 @@ def test_push_owns_artifact_lock_until_remote_and_durable_evidence_are_verified(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION, _REVISION],
+            "main": [_REVISION, _REVISION],
             "@": [_REVISION] * 15,
-            "massive-reworks-and-new-ui@origin": [_REVISION],
+            "main@origin": [_REVISION],
         },
     )
     if tag is not None:
@@ -1611,7 +1611,7 @@ def test_push_owns_artifact_lock_until_remote_and_durable_evidence_are_verified(
         try:
             _ = push_verified_bookmark(
                 root=_REPOSITORY_ROOT,
-                bookmark="massive-reworks-and-new-ui",
+                bookmark="main",
                 artifact_root=artifact_root,
                 run_command=runner,
                 resolve_operation=lambda: _OPERATION_ID,
@@ -1647,7 +1647,7 @@ def test_push_rejects_every_other_bookmark_before_resolving_or_running(
     monkeypatch.setattr(gate_module, "resolve_bookmark_revision", unexpected_resolve)
     runner = _PushRunner(*_success_results())
 
-    with pytest.raises(ValueError, match="restricted to bookmark 'massive-reworks-and-new-ui'"):
+    with pytest.raises(ValueError, match="restricted to bookmark 'main'"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
             bookmark="some-other-bookmark",
@@ -1666,7 +1666,7 @@ def test_push_is_not_invoked_when_local_bookmark_differs_from_current_revision(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION],
+            "main": [_REVISION],
             "@": [_OTHER_REVISION],
         },
     )
@@ -1675,7 +1675,7 @@ def test_push_is_not_invoked_when_local_bookmark_differs_from_current_revision(
     with pytest.raises(RuntimeError, match="does not equal the current revision"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             run_command=runner,
         )
@@ -1692,7 +1692,7 @@ def test_push_is_not_invoked_when_fresh_gate_fails(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION],
+            "main": [_REVISION],
             "@": [_REVISION] * 3,
         },
     )
@@ -1700,7 +1700,7 @@ def test_push_is_not_invoked_when_fresh_gate_fails(
 
     evidence = push_verified_bookmark(
         root=_REPOSITORY_ROOT,
-        bookmark="massive-reworks-and-new-ui",
+        bookmark="main",
         artifact_root=tmp_path / "artifacts",
         run_command=runner,
     )
@@ -1740,7 +1740,7 @@ def test_push_is_not_invoked_when_operation_resolution_is_invalid_or_fails(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION],
+            "main": [_REVISION],
             "@": [_REVISION] * 14,
         },
     )
@@ -1757,7 +1757,7 @@ def test_push_is_not_invoked_when_operation_resolution_is_invalid_or_fails(
     with pytest.raises(RuntimeError, match=message):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             run_command=runner,
         )
@@ -1781,7 +1781,7 @@ def test_push_is_not_invoked_when_revision_drifts_after_the_gate(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": bookmark_revisions,
+            "main": bookmark_revisions,
             "@": current_revisions,
         },
     )
@@ -1790,7 +1790,7 @@ def test_push_is_not_invoked_when_revision_drifts_after_the_gate(
     with pytest.raises(RuntimeError, match="changed after the gate"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             run_command=runner,
             resolve_operation=lambda: _OPERATION_ID,
@@ -1807,9 +1807,9 @@ def test_post_push_remote_mismatch_fails_after_exactly_one_push(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION, _REVISION],
+            "main": [_REVISION, _REVISION],
             "@": [_REVISION] * 15,
-            "massive-reworks-and-new-ui@origin": [_OTHER_REVISION],
+            "main@origin": [_OTHER_REVISION],
         },
     )
     runner = _PushRunner(*_success_results())
@@ -1817,7 +1817,7 @@ def test_post_push_remote_mismatch_fails_after_exactly_one_push(
     with pytest.raises(RuntimeError, match="remote-tracking bookmark"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             run_command=runner,
             resolve_operation=lambda: _OPERATION_ID,
@@ -1825,7 +1825,7 @@ def test_post_push_remote_mismatch_fails_after_exactly_one_push(
 
     assert runner.push_calls == [
         (
-            ("jj", "--at-operation", _OPERATION_ID, "git", "push", "-b", "massive-reworks-and-new-ui"),
+            ("jj", "--at-operation", _OPERATION_ID, "git", "push", "-b", "main"),
             _REPOSITORY_ROOT,
         )
     ]
@@ -1841,7 +1841,7 @@ def test_push_fails_if_durable_evidence_changes_before_final_revalidation(
     def resolve(_root: Path, bookmark: str, *, operation_id: str | None = None) -> str:
         assert operation_id is None or operation_id == _OPERATION_ID
         resolver_calls.append(bookmark)
-        if bookmark == "massive-reworks-and-new-ui@origin":
+        if bookmark == "main@origin":
             evidence_path = artifact_root / _REVISION / "evidence.json"
             _ = evidence_path.write_text('{"status": "passed"}\n', encoding="utf-8")
         return _REVISION
@@ -1858,13 +1858,13 @@ def test_push_fails_if_durable_evidence_changes_before_final_revalidation(
     with pytest.raises(RuntimeError, match="durable evidence"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=artifact_root,
             run_command=runner,
             resolve_operation=lambda: _OPERATION_ID,
         )
 
-    assert resolver_calls[-1] == "massive-reworks-and-new-ui@origin"
+    assert resolver_calls[-1] == "main@origin"
     assert len(runner.push_calls) == 1
 
 
@@ -1942,7 +1942,7 @@ def test_push_rejects_nonliteral_tag_before_any_command(
     with pytest.raises(ValueError, match="tag"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             tag=tag,
             run_command=runner,
@@ -1973,7 +1973,7 @@ def test_push_refuses_invalid_tag_target_before_publication(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION, _REVISION],
+            "main": [_REVISION, _REVISION],
             "@": [_REVISION] * 15,
         },
     )
@@ -1982,7 +1982,7 @@ def test_push_refuses_invalid_tag_target_before_publication(
     with pytest.raises(RuntimeError, match="tag"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             tag="v1.31.0",
             run_command=runner,
@@ -2001,7 +2001,7 @@ def test_failed_gate_never_publishes_tag(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION],
+            "main": [_REVISION],
             "@": [_REVISION] * 15,
         },
     )
@@ -2011,7 +2011,7 @@ def test_failed_gate_never_publishes_tag(
     runner = _PushRunner(*results)
     evidence = push_verified_bookmark(
         root=_REPOSITORY_ROOT,
-        bookmark="massive-reworks-and-new-ui",
+        bookmark="main",
         artifact_root=tmp_path / "artifacts",
         tag="v1.31.0",
         run_command=runner,
@@ -2030,9 +2030,9 @@ def test_remote_tag_mismatch_refuses_success_after_one_push(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION, _REVISION],
+            "main": [_REVISION, _REVISION],
             "@": [_REVISION] * 15,
-            "massive-reworks-and-new-ui@origin": [_REVISION],
+            "main@origin": [_REVISION],
         },
     )
     _tag_queries(monkeypatch, [_REVISION, _REVISION, remote_target])
@@ -2040,7 +2040,7 @@ def test_remote_tag_mismatch_refuses_success_after_one_push(
     with pytest.raises(RuntimeError, match="tag"):
         push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=tmp_path / "artifacts",
             tag="v1.31.0",
             run_command=runner,
@@ -2059,9 +2059,9 @@ def test_tag_push_pins_both_refs_and_revalidates_evidence_after_remote_tag(
     _bookmark_resolver(
         monkeypatch,
         {
-            "massive-reworks-and-new-ui": [_REVISION, _REVISION],
+            "main": [_REVISION, _REVISION],
             "@": [_REVISION] * 15,
-            "massive-reworks-and-new-ui@origin": [_REVISION],
+            "main@origin": [_REVISION],
         },
     )
     runner = _PushRunner(*_success_results())
@@ -2076,7 +2076,7 @@ def test_tag_push_pins_both_refs_and_revalidates_evidence_after_remote_tag(
     def publish() -> GateEvidence:
         return push_verified_bookmark(
             root=_REPOSITORY_ROOT,
-            bookmark="massive-reworks-and-new-ui",
+            bookmark="main",
             artifact_root=artifact_root,
             tag="v1.31.0",
             run_command=runner,
@@ -2102,7 +2102,7 @@ def test_tag_push_pins_both_refs_and_revalidates_evidence_after_remote_tag(
                 "git",
                 "push",
                 "-b",
-                "massive-reworks-and-new-ui",
+                "main",
                 "--tag",
                 "exact:v1.31.0",
             ),
@@ -2118,7 +2118,7 @@ def test_tag_cli_option_is_rejected_outside_push(operation: str) -> None:
         if operation == "verify"
         else [
             "--bookmark",
-            "massive-reworks-and-new-ui",
+            "main",
         ]
     )
     with pytest.raises(SystemExit) as raised:
@@ -2136,7 +2136,7 @@ def test_push_cli_rejects_invalid_tag_without_querying_repo(
             [
                 "push",
                 "--bookmark",
-                "massive-reworks-and-new-ui",
+                "main",
                 "--tag",
                 "glob:v*",
             ]

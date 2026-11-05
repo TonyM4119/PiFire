@@ -88,13 +88,13 @@ Run this before merging any branch:
 
 ```bash
 QT_QPA_PLATFORM=offscreen SDL_VIDEODRIVER=dummy uv run pytest tests/ --cov --cov-report=xml -q
-uv run diff-cover coverage.xml --compare-branch=massive-reworks-and-new-ui --fail-under=80
+uv run diff-cover coverage.xml --compare-branch=main --fail-under=80
 ```
 
 - The first command runs the full suite and additionally emits `coverage.xml` (Cobertura
   format), the input `diff-cover` needs — the `--cov-report=json`/`html` reports from the
   baseline command above are for human/tooling consumption and aren't consumed here.
-- The second command diffs the current branch against `massive-reworks-and-new-ui`,
+- The second command diffs the current branch against `main`,
   finds the lines that are new or modified, cross-references them against
   `coverage.xml`, and **fails only if fewer than 80% of those changed lines are
   covered** — printing the specific uncovered new lines when it fails.

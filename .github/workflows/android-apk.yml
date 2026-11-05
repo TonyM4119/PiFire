@@ -6,7 +6,7 @@ name: Build Android app
 
 on:
   push:
-    branches: ["massive-reworks-and-new-ui"]
+    branches: ["main"]
     paths:
       - "mobile/**"
       - "packages/**"

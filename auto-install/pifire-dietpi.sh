@@ -13,11 +13,11 @@ else
 # !WARNING! This script is experimental! Use at your own risk.
 #
 # Many thanks to the PiVPN project (pivpn.io) for much of the inspiration for this script
-# Run from https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/pifire-dietpi.sh
+# Run from https://raw.githubusercontent.com/TonyM4119/PiFire/main/auto-install/pifire-dietpi.sh
 #
 # Install with this command (from your Pi):
 #
-# curl https://raw.githubusercontent.com/TonyM4119/PiFire/massive-reworks-and-new-ui/auto-install/pifire-dietpi.sh | bash
+# curl https://raw.githubusercontent.com/TonyM4119/PiFire/main/auto-install/pifire-dietpi.sh | bash
 #
 # Pre-Requisites:
 #       Do not run as ROOT (or with SUDO)
@@ -200,7 +200,7 @@ echo "*************************************************************************"
 cd /usr/local/bin
 
 PIFIRE_REPO_URL="https://github.com/TonyM4119/PiFire"
-PIFIRE_BRANCH="massive-reworks-and-new-ui"
+PIFIRE_BRANCH="main"
 if [[ ! -d /usr/local/bin/pifire ]]; then
 	echo " + Cloning $PIFIRE_BRANCH branch..." | tee -a ~/logs/pifire_install.log
 	# --progress: the pipe into tee makes git think it has no terminal, and it
